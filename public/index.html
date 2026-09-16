@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Brainstorm</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,400;0,600;1,400&family=Inter:wght@400;500;600&display=swap');
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #fcfbf9;
+            font-family: 'Crimson Pro', serif;
+            touch-action: none; /* Prevent default browser touch actions */
+        }
+
+        #canvas-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            cursor: default;
+        }
+
+        canvas {
+            display: block;
+        }
+
+        /* The overlay textarea for editing */
+        #text-editor {
+            position: absolute;
+            display: none;
+            background: rgba(255, 255, 255, 0.95);
+            outline: none;
+            resize: none;
+            overflow: hidden;
+            padding: 8px 10px;
+            margin: 0;
+            font-family: 'Crimson Pro', serif;
+            line-height: 1.4;
+            color: #333;
+            box-shadow: 0 18px 40px rgba(15, 23, 42, 0.15);
+            min-width: 50px;
+            z-index: 10;
+            border: 1px solid rgba(15, 23, 42, 0.12);
+            border-radius: 10px;
+        }
+
+        #text-editor.editor-new {
+            outline: 2px solid #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25), 0 18px 40px rgba(59, 130, 246, 0.18);
+        }
+
+        .ui-panel {
+            font-family: 'Inter', sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+        }
+        
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(0,0,0,0.1);
+        }
+
+        .menu-bar {
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid rgba(15, 23, 42, 0.08);
+            box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+        }
+
+        .menu-trigger {
+            font-size: 13px;
+            font-weight: 600;
+            color: #374151;
+            padding: 6px 10px;
+            border-radius: 8px;
+            transition: background 0.15s ease;
+        }
+        .menu-trigger:hover {
+            background: rgba(15, 23, 42, 0.06);
+        }
+
+        .menu-dropdown {
+            position: absolute;
+            top: calc(100% + 6px);
+            left: 0;
+            min-width: 200px;
+            background: rgba(255, 255, 255, 0.98);
+            border: 1px solid rgba(15, 23, 42, 0.12);
+            border-radius: 12px;
+            box-shadow: 0 20px 40px rgba(15, 23, 42, 0.18);
+            padding: 6px;
+            z-index: 60;
+        }
+        .menu-dropdown button {
+            width: 100%;
+            text-align: left;
+            padding: 8px 10px;
+            border-radius: 8px;
+            font-size: 12px;
+            color: #374151;
+            transition: background 0.15s ease;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+        .menu-dropdown button:hover {
+            background: rgba(59, 130, 246, 0.1);
+            color: #1d4ed8;
+        }
+        .menu-dropdown button:disabled {
+            color: #9ca3af;
+            cursor: not-allowed;
+            background: transparent;
+        }
+        .menu-dropdown button:disabled:hover {
+            background: transparent;
+            color: #9ca3af;
+        }
+        .menu-shortcut {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            margin-left: auto;
+        }
+        .menu-separator {
+            height: 1px;
+            margin: 6px 4px;
+            background: rgba(15, 23, 42, 0.08);
+        }
+
+        .color-hex {
+            width: 64px;
+            padding: 2px 6px;
+            font-size: 11px;
+            font-family: 'Inter', sans-serif;
+            border: 1px solid rgba(15, 23, 42, 0.15);
+            border-radius: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.02em;
+            background: #fff;
+            color: #374151;
+        }
+
+        #context-menu {
+            position: fixed;
+            min-width: 200px;
+            background: rgba(255, 255, 255, 0.98);
+            border: 1px solid rgba(15, 23, 42, 0.12);
+            border-radius: 12px;
+            box-shadow: 0 20px 40px rgba(15, 23, 42, 0.18);
+            padding: 6px;
+            z-index: 80;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        }
+        #context-menu button {
+            width: 100%;
+            text-align: left;
+            padding: 8px 10px;
+            border-radius: 8px;
+            font-size: 12px;
+            color: #374151;
+            transition: background 0.15s ease;
+            font-family: inherit;
+        }
+        #context-menu button:hover {
+            background: rgba(59, 130, 246, 0.1);
+            color: #1d4ed8;
+        }
+
+        .kbd {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2px 6px;
+            border-radius: 6px;
+            border: 1px solid rgba(15, 23, 42, 0.2);
+            background: #f8fafc;
+            font-size: 11px;
+            font-family: 'Inter', sans-serif;
+            color: #111827;
+        }
+
+        #help-footer {
+            font-family: 'Inter', sans-serif;
+        }
+
+        /* Custom inputs */
+        input[type="color"] {
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            border: none;
+            width: 24px;
+            height: 24px;
+            padding: 0;
+            overflow: hidden;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        input[type="color"]::-webkit-color-swatch-wrapper {
+            padding: 0;
+        }
+        input[type="color"]::-webkit-color-swatch {
+            border: 1px solid rgba(0,0,0,0.2);
+            border-radius: 4px;
+        }
+        input[type="color"]::-moz-color-swatch {
+            border: 1px solid rgba(0,0,0,0.2);
+            border-radius: 4px;
+        }
+
+        .btn-toggle.active {
+            background-color: #e5e7eb;
+            color: #111827;
+            border-color: #9ca3af;
+        }
+        
+        .color-swatch {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            border: 1px solid rgba(0,0,0,0.1);
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+        .color-swatch:hover {
+            transform: scale(1.1);
+            border-color: #666;
+        }
+
+        #minimap-canvas {
+            display: block;
+            background: #fcfbf9;
+            border: 1px solid rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+
+    <div id="canvas-container">
+        <canvas id="app-canvas"></canvas>
+        <textarea id="text-editor" spellcheck="false"></textarea>
+    </div>
+
+    <!-- UI Overlay: Inspector Panel -->
+    <div id="style-panel" class="fixed top-24 right-4 w-64 glass-panel p-4 rounded-lg shadow-xl hidden flex-col gap-4 z-40 ui-panel transition-all duration-200">
+        <!-- Header -->
+        <div class="flex justify-between items-center border-b border-gray-200 pb-2">
+            <span class="text-xs font-bold uppercase tracking-wider text-gray-500">Inspector</span>
+            <span id="selection-label" class="text-[10px] text-gray-400">Selected</span>
+        </div>
+        
+        <!-- NOTE SETTINGS (Visible when note selected) -->
+        <div id="inspector-note" class="space-y-4 hidden">
+            <!-- Font Section -->
+            <div class="space-y-3">
+                <div class="flex justify-between items-center">
+                    <label class="text-xs font-medium text-gray-700">Font</label>
+                    <div class="flex items-center gap-2">
+                        <input type="color" id="style-color" onchange="app.updateNoteStyle('textColor', this.value)" title="Text Color">
+                        <input type="text" id="style-color-hex" class="color-hex" value="#2d3748" onchange="app.updateNoteStyle('textColor', this.value)" spellcheck="false">
+                        <input type="number" id="style-size" value="18" min="10" max="96" class="w-14 pl-2 py-0.5 border border-gray-300 rounded text-xs text-right" onchange="app.updateNoteStyle('fontSize', parseInt(this.value))">
+                        <span class="text-xs text-gray-500">px</span>
+                    </div>
+                </div>
+                <div class="flex gap-1 justify-between">
+                    <button id="btn-bold" class="btn-toggle flex-1 py-1 rounded border border-transparent hover:border-gray-300 text-gray-600 font-bold text-sm transition-colors" onclick="app.toggleNoteBoolean('bold')">B</button>
+                    <button id="btn-italic" class="btn-toggle flex-1 py-1 rounded border border-transparent hover:border-gray-300 text-gray-600 italic text-sm transition-colors" onclick="app.toggleNoteBoolean('italic')">I</button>
+                    <button id="btn-underline" class="btn-toggle flex-1 py-1 rounded border border-transparent hover:border-gray-300 text-gray-600 underline text-sm transition-colors" onclick="app.toggleNoteBoolean('underline')">U</button>
+                    <button id="btn-strike" class="btn-toggle flex-1 py-1 rounded border border-transparent hover:border-gray-300 text-gray-600 line-through text-sm transition-colors" onclick="app.toggleNoteBoolean('strike')">S</button>
+                </div>
+            </div>
+
+            <!-- Border Section -->
+            <div class="space-y-3 pt-2 border-t border-gray-100">
+                <div class="flex justify-between items-center">
+                    <label class="text-xs font-medium text-gray-700">Border</label>
+                    <div class="flex items-center gap-2">
+                        <input type="color" id="style-border-color" onchange="app.updateNoteStyle('borderColor', this.value)" title="Border Color">
+                        <input type="text" id="style-border-color-hex" class="color-hex" value="#d1d1d1" onchange="app.updateNoteStyle('borderColor', this.value)" spellcheck="false">
+                    </div>
+                </div>
+                <div class="space-y-2">
+                    <label class="flex items-center justify-between text-xs text-gray-600 cursor-pointer hover:bg-gray-50 p-1 rounded">
+                        <span>Show Border</span>
+                        <input type="checkbox" id="style-border-visible" class="accent-blue-500" onchange="app.updateNoteStyle('borderVisible', this.checked)">
+                    </label>
+                    <label class="flex items-center justify-between text-xs text-gray-600 cursor-pointer hover:bg-gray-50 p-1 rounded">
+                        <span>Rounded Corners</span>
+                        <input type="checkbox" id="style-rounded" class="accent-blue-500" onchange="app.updateNoteStyle('rounded', this.checked)">
+                    </label>
+                </div>
+            </div>
+
+            <!-- Background Section -->
+            <div class="space-y-3 pt-2 border-t border-gray-100">
+                <label class="text-xs font-medium text-gray-700 block">Background</label>
+                <div class="grid grid-cols-5 gap-2" id="bg-palette">
+                    <!-- Generated by JS -->
+                </div>
+            </div>
+
+            <!-- Actions Section -->
+            <div class="pt-2 border-t border-gray-100 space-y-2">
+                <button id="group-notes-btn" onclick="app.createGroupFromSelection()" class="w-full px-3 py-2 rounded-md bg-blue-50 text-blue-600 text-xs font-medium hover:bg-blue-100 transition-colors border border-blue-100 flex items-center justify-between gap-2 hidden">
+                    <span class="flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+                        <span>Group Notes</span>
+                    </span>
+                    <span class="menu-shortcut">
+                        <span class="kbd">Cmd/Ctrl</span>
+                        <span class="kbd">G</span>
+                    </span>
+                </button>
+                <button onclick="app.fitNotesToContent()" class="w-full px-3 py-2 rounded-md bg-gray-50 text-gray-600 text-xs font-medium hover:bg-gray-100 transition-colors border border-gray-200 flex items-center justify-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"></rect><path d="M9 4v16"></path><path d="M15 4v16"></path></svg>
+                    <span>Fit to Content</span>
+                </button>
+                <button onclick="app.deleteSelection()" class="w-full px-3 py-2 rounded-md bg-red-50 text-red-600 text-xs font-medium hover:bg-red-100 transition-colors border border-red-100 flex items-center justify-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
+                    <span>Delete Note</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- CONNECTION SETTINGS (Visible when connection selected) -->
+        <div id="inspector-connection" class="space-y-4 hidden">
+            <div class="space-y-3">
+                <div class="flex justify-between items-center">
+                    <label class="text-xs font-medium text-gray-700">Line Color</label>
+                    <div class="flex items-center gap-2">
+                        <input type="color" id="conn-color" onchange="app.updateConnectionStyle('color', this.value)">
+                        <input type="text" id="conn-color-hex" class="color-hex" value="#9ca3af" onchange="app.updateConnectionStyle('color', this.value)" spellcheck="false">
+                    </div>
+                </div>
+
+                <div class="space-y-2">
+                    <label class="text-xs font-medium text-gray-700 block">Label</label>
+                    <input type="text" id="conn-label" class="w-full px-2 py-1 border border-gray-300 rounded text-sm" onchange="app.updateConnectionLabel(this.value)" maxlength="60" placeholder="Describe the relationship">
+                </div>
+
+                <div class="space-y-2">
+                    <label class="text-xs font-medium text-gray-700 block">Style</label>
+                    <div class="flex rounded-md shadow-sm" role="group">
+                        <button type="button" class="flex-1 px-2 py-1 text-xs font-medium text-gray-900 bg-white border border-gray-200 rounded-l-lg hover:bg-gray-100 hover:text-blue-700 focus:z-10 focus:ring-2 focus:ring-blue-700 focus:text-blue-700" onclick="app.updateConnectionStyle('dash', [])">Solid</button>
+                        <button type="button" class="flex-1 px-2 py-1 text-xs font-medium text-gray-900 bg-white border-t border-b border-gray-200 hover:bg-gray-100 hover:text-blue-700 focus:z-10 focus:ring-2 focus:ring-blue-700 focus:text-blue-700" onclick="app.updateConnectionStyle('dash', [5, 5])">Dashed</button>
+                        <button type="button" class="flex-1 px-2 py-1 text-xs font-medium text-gray-900 bg-white border border-gray-200 rounded-r-lg hover:bg-gray-100 hover:text-blue-700 focus:z-10 focus:ring-2 focus:ring-blue-700 focus:text-blue-700" onclick="app.updateConnectionStyle('dash', [2, 4])">Dotted</button>
+                    </div>
+                </div>
+
+                <div class="space-y-2 pt-2 border-t border-gray-100">
+                     <label class="text-xs font-medium text-gray-700 block">Arrows</label>
+                     <div class="flex gap-2">
+                         <label class="flex items-center gap-2 text-xs text-gray-600 cursor-pointer bg-gray-50 px-2 py-1 rounded flex-1">
+                             <input type="checkbox" id="conn-arrow-start" class="accent-blue-500" onchange="app.updateConnectionStyle('arrowStart', this.checked)">
+                             <span>Start</span>
+                         </label>
+                         <label class="flex items-center gap-2 text-xs text-gray-600 cursor-pointer bg-gray-50 px-2 py-1 rounded flex-1">
+                             <input type="checkbox" id="conn-arrow-end" class="accent-blue-500" onchange="app.updateConnectionStyle('arrowEnd', this.checked)">
+                             <span>End</span>
+                         </label>
+                     </div>
+                </div>
+            </div>
+
+            <!-- Actions Section -->
+            <div class="pt-2 border-t border-gray-100">
+                <button onclick="app.deleteSelection()" class="w-full px-3 py-2 rounded-md bg-red-50 text-red-600 text-xs font-medium hover:bg-red-100 transition-colors border border-red-100 flex items-center justify-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
+                    <span>Delete Connection</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- GROUP SETTINGS (Visible when group selected) -->
+        <div id="inspector-group" class="space-y-4 hidden">
+            <div class="space-y-3">
+                <div class="space-y-2">
+                    <label class="text-xs font-medium text-gray-700 block">Title</label>
+                    <input type="text" id="group-title" class="w-full px-2 py-1 border border-gray-300 rounded text-sm" onchange="app.updateGroupTitle(this.value)" maxlength="50">
+                </div>
+
+                <div class="flex justify-between items-center">
+                    <label class="text-xs font-medium text-gray-700">Border Color</label>
+                    <div class="flex items-center gap-2">
+                        <input type="color" id="group-border-color" onchange="app.updateGroupStyle('borderColor', this.value)">
+                        <input type="text" id="group-border-color-hex" class="color-hex" value="#6b7280" onchange="app.updateGroupStyle('borderColor', this.value)" spellcheck="false">
+                    </div>
+                </div>
+
+                <div class="flex justify-between items-center">
+                    <label class="text-xs font-medium text-gray-700">Background</label>
+                    <div class="flex items-center gap-2">
+                        <input type="color" id="group-bg-color" onchange="app.updateGroupStyle('backgroundColor', this.value + '80')">
+                        <input type="text" id="group-bg-color-hex" class="color-hex" value="#ffffff" onchange="app.updateGroupStyle('backgroundColor', this.value + '80')" spellcheck="false">
+                    </div>
+                </div>
+
+                <div class="space-y-2">
+                    <div class="flex justify-between items-center">
+                        <label class="text-xs text-gray-600">Border Width</label>
+                        <input type="number" id="group-border-width" value="2" min="1" max="10" class="w-14 pl-2 py-0.5 border border-gray-300 rounded text-xs text-right" onchange="app.updateGroupStyle('borderWidth', parseInt(this.value))">
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <label class="text-xs text-gray-600">Corner Radius</label>
+                        <input type="number" id="group-border-radius" value="8" min="0" max="30" class="w-14 pl-2 py-0.5 border border-gray-300 rounded text-xs text-right" onchange="app.updateGroupStyle('borderRadius', parseInt(this.value))">
+                    </div>
+                </div>
+
+                <div class="space-y-2 pt-2 border-t border-gray-100">
+                     <label class="flex items-center justify-between text-xs text-gray-600 cursor-pointer hover:bg-gray-50 p-1 rounded">
+                         <span>Collapsed</span>
+                         <input type="checkbox" id="group-collapsed" class="accent-blue-500" onchange="app.updateGroupCollapsed(this.checked)">
+                     </label>
+                     <label class="flex items-center justify-between text-xs text-gray-600 cursor-pointer hover:bg-gray-50 p-1 rounded">
+                         <span>Locked</span>
+                         <input type="checkbox" id="group-locked" class="accent-blue-500" onchange="app.updateGroupLocked(this.checked)">
+                     </label>
+                </div>
+            </div>
+
+            <!-- Actions Section -->
+            <div class="pt-2 border-t border-gray-100 space-y-2">
+                <button onclick="app.ungroupSelection()" class="w-full px-3 py-2 rounded-md bg-gray-50 text-gray-600 text-xs font-medium hover:bg-gray-100 transition-colors border border-gray-200 flex items-center justify-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                    <span>Ungroup</span>
+                </button>
+                <button onclick="app.deleteSelection()" class="w-full px-3 py-2 rounded-md bg-red-50 text-red-600 text-xs font-medium hover:bg-red-100 transition-colors border border-red-100 flex items-center justify-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
+                    <span>Delete Group</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Backdrop for modals -->
+    <div id="modal-backdrop" class="fixed inset-0 bg-black/50 z-30 hidden" onclick="app.closeAllModals()"></div>
+
+    <!-- Projects Panel -->
+    <div id="projects-panel" class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 glass-panel p-4 rounded-lg shadow-xl hidden flex-col gap-4 z-40 ui-panel transition-all duration-200 max-h-[80vh] overflow-hidden">
+        <!-- Header -->
+        <div class="flex justify-between items-center border-b border-gray-200 pb-2">
+            <span class="text-xs font-bold uppercase tracking-wider text-gray-500">Projects</span>
+            <button onclick="app.toggleProjects()" class="text-gray-400 hover:text-gray-600">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+        </div>
+        
+        <div class="space-y-4">
+            <!-- Current Project Display -->
+            <div class="bg-gray-50 p-3 rounded-lg">
+                <label class="text-xs font-medium text-gray-500 block mb-1">Current Project</label>
+                <input type="text" id="current-project-name" class="w-full px-2 py-1 border border-gray-300 rounded text-sm" onchange="app.renameProject(this.value)" maxlength="50">
+            </div>
+            
+            <!-- Project List -->
+            <div class="space-y-2">
+                <label class="text-xs font-medium text-gray-700 block">All Projects</label>
+                <div id="projects-list" class="max-h-64 overflow-y-auto space-y-1">
+                    <!-- Generated by JS -->
+                </div>
+            </div>
+            
+            <!-- Actions -->
+            <div class="pt-2 border-t border-gray-100 space-y-2">
+                <button onclick="app.createNewProject()" class="w-full px-3 py-2 rounded-md bg-blue-50 text-blue-600 text-xs font-medium hover:bg-blue-100 transition-colors border border-blue-100 flex items-center justify-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                    <span>New Project</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Help Panel -->
+    <div id="help-modal" class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[520px] max-w-[90vw] glass-panel p-5 rounded-lg shadow-xl hidden flex-col gap-4 z-40 ui-panel transition-all duration-200 max-h-[80vh] overflow-hidden">
+        <div class="flex justify-between items-center border-b border-gray-200 pb-2">
+            <span class="text-xs font-bold uppercase tracking-wider text-gray-500">Help</span>
+            <button onclick="app.closeHelp()" class="text-gray-400 hover:text-gray-600">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+        </div>
+
+        <div class="space-y-4 text-sm text-gray-700 overflow-y-auto pr-1">
+            <div>
+                <div class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Basics</div>
+                <ul class="text-xs text-gray-600 space-y-1">
+                    <li>Double click empty space to create a note.</li>
+                    <li>Double click inside a group to create a note in that group.</li>
+                    <li>Drag notes to move them, drag onto a note to connect.</li>
+                    <li>Shift + drag to box select groups and top-level notes.</li>
+                </ul>
+            </div>
+
+            <div>
+                <div class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Shortcuts</div>
+                <div class="grid grid-cols-2 gap-2 text-xs text-gray-600">
+                    <div class="flex items-center justify-between gap-2">
+                        <span>Create group</span>
+                        <span class="kbd">Cmd/Ctrl</span><span class="kbd">G</span>
+                    </div>
+                    <div class="flex items-center justify-between gap-2">
+                        <span>Ungroup</span>
+                        <span class="kbd">Cmd/Ctrl</span><span class="kbd">Shift</span><span class="kbd">G</span>
+                    </div>
+                    <div class="flex items-center justify-between gap-2">
+                        <span>Toggle settings</span>
+                        <span class="kbd">Cmd/Ctrl</span><span class="kbd">,</span>
+                    </div>
+                    <div class="flex items-center justify-between gap-2">
+                        <span>Help</span>
+                        <span class="kbd">?</span>
+                    </div>
+                    <div class="flex items-center justify-between gap-2">
+                        <span>Pan</span>
+                        <span class="kbd">Middle drag</span>
+                    </div>
+                    <div class="flex items-center justify-between gap-2">
+                        <span>Zoom</span>
+                        <span class="kbd">Ctrl</span><span class="kbd">Scroll</span>
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <div class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Tips</div>
+                <ul class="text-xs text-gray-600 space-y-1">
+                    <li>Collapse groups to focus; connections will attach to the collapsed indicator.</li>
+                    <li>Use the note inspector to group selections or fit notes to content.</li>
+                    <li>Right click the canvas for quick actions.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- AI Brainstorm Modal -->
+    <div id="ai-brainstorm-modal" class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[560px] max-w-[92vw] glass-panel p-5 rounded-lg shadow-xl hidden flex-col gap-4 z-40 ui-panel transition-all duration-200">
+        <div class="flex justify-between items-center border-b border-gray-200 pb-2">
+            <span class="text-xs font-bold uppercase tracking-wider text-gray-500">AI Brainstorm</span>
+            <button onclick="app.closeAiBrainstorm()" class="text-gray-400 hover:text-gray-600">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+        </div>
+        <p class="text-xs text-gray-600">Describe what you want to brainstorm and the AI will add a set of notes and connections to the canvas.</p>
+        <textarea id="ai-brainstorm-input" class="w-full min-h-[140px] p-3 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-200" placeholder="e.g., Launch plan for a wellness coaching app..." maxlength="1000"></textarea>
+        <div id="ai-brainstorm-status" class="text-xs text-gray-500"></div>
+        <div class="flex justify-end gap-2">
+            <button id="ai-brainstorm-cancel" class="px-3 py-2 rounded-md bg-gray-50 text-gray-600 text-xs font-medium hover:bg-gray-100 transition-colors border border-gray-200">Cancel</button>
+            <button id="ai-brainstorm-go" class="px-3 py-2 rounded-md bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 transition-colors">Go</button>
+        </div>
+    </div>
+
+    <!-- Clear Confirmation -->
+    <div id="clear-modal" class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[420px] max-w-[90vw] glass-panel p-5 rounded-lg shadow-xl hidden flex-col gap-4 z-40 ui-panel transition-all duration-200">
+        <div class="flex justify-between items-center border-b border-gray-200 pb-2">
+            <span class="text-xs font-bold uppercase tracking-wider text-gray-500">Clear Board</span>
+            <button onclick="app.closeAllModals()" class="text-gray-400 hover:text-gray-600">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+        </div>
+        <p class="text-sm text-gray-600">This will remove all notes, groups, and connections from the current board. This action cannot be undone.</p>
+        <div class="flex gap-2 justify-end">
+            <button onclick="app.closeAllModals()" class="px-3 py-2 rounded-md bg-gray-50 text-gray-600 text-xs font-medium hover:bg-gray-100 transition-colors border border-gray-200">Cancel</button>
+            <button onclick="app.confirmClearBoard(); app.closeAllModals();" class="px-3 py-2 rounded-md bg-red-50 text-red-600 text-xs font-medium hover:bg-red-100 transition-colors border border-red-100">Clear Board</button>
+        </div>
+    </div>
+
+    <!-- Settings Panel -->
+    <div id="settings-panel" class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 glass-panel p-4 rounded-lg shadow-xl hidden flex-col gap-4 z-40 ui-panel transition-all duration-200 max-h-[80vh] overflow-hidden">
+        <!-- Header -->
+        <div class="flex justify-between items-center border-b border-gray-200 pb-2">
+            <span class="text-xs font-bold uppercase tracking-wider text-gray-500">Settings</span>
+            <button onclick="app.toggleSettings()" class="text-gray-400 hover:text-gray-600">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+        </div>
+        
+        <!-- Grid Settings -->
+        <div class="space-y-4">
+            <div class="space-y-3">
+                <label class="text-xs font-medium text-gray-700 block">Grid</label>
+                
+                <label class="flex items-center justify-between text-xs text-gray-600 cursor-pointer hover:bg-gray-50 p-1 rounded">
+                    <span>Enable Snap to Grid</span>
+                    <input type="checkbox" id="settings-grid-enabled" class="accent-blue-500" onchange="app.setGridEnabled(this.checked)">
+                </label>
+                
+                <label class="flex items-center justify-between text-xs text-gray-600 cursor-pointer hover:bg-gray-50 p-1 rounded">
+                    <span>Show Grid Lines</span>
+                    <input type="checkbox" id="settings-grid-visible" class="accent-blue-500" onchange="app.setGridVisible(this.checked)">
+                </label>
+                
+                <div class="flex justify-between items-center">
+                    <label class="text-xs text-gray-600">Grid Size</label>
+                    <div class="flex items-center gap-2">
+                        <input type="number" id="settings-grid-size" value="50" min="10" max="200" step="10" class="w-16 pl-2 py-0.5 border border-gray-300 rounded text-xs text-right" onchange="app.setGridSize(parseInt(this.value))">
+                        <span class="text-xs text-gray-500">px</span>
+                    </div>
+                </div>
+                
+                <div class="flex justify-between items-center">
+                    <label class="text-xs text-gray-600">Grid Color</label>
+                    <div class="flex items-center gap-2">
+                        <input type="color" id="settings-grid-color" value="#e5e7eb" onchange="app.setGridColor(this.value)" title="Grid Color">
+                        <input type="text" id="settings-grid-color-hex" class="color-hex" value="#e5e7eb" onchange="app.setGridColor(this.value)" spellcheck="false">
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Snap Actions -->
+            <div class="pt-2 border-t border-gray-100 space-y-2">
+                <button onclick="app.snapAllNotesToGrid()" class="w-full px-3 py-2 rounded-md bg-blue-50 text-blue-600 text-xs font-medium hover:bg-blue-100 transition-colors border border-blue-100 flex items-center justify-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+                    <span>Snap All Notes to Grid</span>
+                </button>
+            </div>
+            
+            <!-- Canvas Settings -->
+            <div class="pt-2 border-t border-gray-100 space-y-3">
+                <label class="text-xs font-medium text-gray-700 block">Canvas</label>
+                
+                <div class="flex justify-between items-center">
+                    <label class="text-xs text-gray-600">Background</label>
+                    <div class="flex items-center gap-2">
+                        <input type="color" id="settings-bg-color" value="#fcfbf9" onchange="app.setBackgroundColor(this.value)" title="Background Color">
+                        <input type="text" id="settings-bg-color-hex" class="color-hex" value="#fcfbf9" onchange="app.setBackgroundColor(this.value)" spellcheck="false">
+                    </div>
+                </div>
+                
+                <button onclick="app.resetCamera()" class="w-full px-3 py-2 rounded-md bg-gray-50 text-gray-600 text-xs font-medium hover:bg-gray-100 transition-colors border border-gray-200 flex items-center justify-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
+                    <span>Reset View</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Controls -->
+    <div id="controls" class="fixed top-0 left-0 w-full z-50 ui-panel pointer-events-none">
+        <div class="flex items-start justify-between px-4 mt-3">
+            <div class="menu-bar px-3 py-2 rounded-xl flex items-center gap-4 pointer-events-auto">
+                <div class="flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-blue-500"></span>
+                    <span class="text-sm font-semibold text-gray-800 tracking-wide">Brainstorm</span>
+                </div>
+
+                <div class="flex items-center gap-1">
+                    <div class="relative">
+                        <button class="menu-trigger" data-menu="menu-file">File</button>
+                        <div id="menu-file" class="menu-dropdown hidden">
+                            <button onclick="app.toggleProjects()"><span>Projects...</span></button>
+                            <button onclick="app.createNoteAtPointer()"><span>New Note</span></button>
+                            <button onclick="app.createEmptyGroup()"><span>New Group</span></button>
+                            <div class="menu-separator"></div>
+                            <button onclick="app.exportImage()"><span>Export PNG</span></button>
+                            <button onclick="app.clearBoard()" class="text-red-600"><span>Clear...</span></button>
+                        </div>
+                    </div>
+                    <div class="relative">
+                        <button class="menu-trigger" data-menu="menu-edit">Edit</button>
+                        <div id="menu-edit" class="menu-dropdown hidden">
+                            <button id="menu-group-selection" onclick="app.createGroupFromSelection()">
+                                <span>Group Selection</span>
+                                <span class="menu-shortcut">
+                                    <span class="kbd">Cmd/Ctrl</span>
+                                    <span class="kbd">G</span>
+                                </span>
+                            </button>
+                            <button id="menu-ungroup-selection" onclick="app.ungroupSelection()">
+                                <span>Ungroup Selection</span>
+                                <span class="menu-shortcut">
+                                    <span class="kbd">Cmd/Ctrl</span>
+                                    <span class="kbd">Shift</span>
+                                    <span class="kbd">G</span>
+                                </span>
+                            </button>
+                            <button id="menu-fit-content" onclick="app.fitNotesToContent()"><span>Fit Notes to Content</span></button>
+                        </div>
+                    </div>
+                    <div class="relative">
+                        <button class="menu-trigger" data-menu="menu-view">View</button>
+                        <div id="menu-view" class="menu-dropdown hidden">
+                            <button onclick="app.toggleSettings()">
+                                <span>Settings...</span>
+                                <span class="menu-shortcut">
+                                    <span class="kbd">Cmd/Ctrl</span>
+                                    <span class="kbd">,</span>
+                                </span>
+                            </button>
+                            <button onclick="app.toggleGridEnabled()"><span>Toggle Grid Snap</span></button>
+                            <button onclick="app.toggleGridVisible()"><span>Toggle Grid Visibility</span></button>
+                            <button id="menu-toggle-minimap" onclick="app.toggleMinimap()"><span data-label>Hide Minimap</span></button>
+                        </div>
+                    </div>
+                    <div id="menu-tools-container" class="relative hidden">
+                        <button class="menu-trigger" data-menu="menu-tools">Tools</button>
+                        <div id="menu-tools" class="menu-dropdown hidden">
+                            <button onclick="app.openAiBrainstorm()"><span>AI Brainstorm</span></button>
+                        </div>
+                    </div>
+                    <div class="relative">
+                        <button class="menu-trigger" data-menu="menu-help">Help</button>
+                        <div id="menu-help" class="menu-dropdown hidden">
+                            <button onclick="app.toggleHelp()">
+                                <span>Help and Shortcuts</span>
+                                <span class="menu-shortcut">
+                                    <span class="kbd">?</span>
+                                </span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="menu-bar px-2 py-2 rounded-xl flex items-center gap-3 pointer-events-auto">
+                <div class="flex items-center gap-1">
+                    <button onclick="app.zoomIn()" class="glass-panel hover:bg-white px-3 py-2 rounded-lg text-gray-700 font-medium transition-colors shadow-sm w-10">
+                        -
+                    </button>
+                    <button onclick="app.zoomToDefault()" id="zoom-display" class="glass-panel flex items-center px-3 py-2 rounded-lg text-xs font-medium text-gray-600 shadow-sm min-w-[50px] text-center">100%</button>
+                    <button onclick="app.zoomOut()" class="glass-panel hover:bg-white px-3 py-2 rounded-lg text-gray-700 font-medium transition-colors shadow-sm w-10">
+                        +
+                    </button>
+                </div>
+
+                <div class="w-px h-6 bg-gray-200"></div>
+
+                <div id="auth-container" class="flex items-center gap-2">
+                    <button id="auth-signin" class="glass-panel px-3 py-2 rounded-lg text-xs font-semibold text-gray-700 hover:bg-white transition-colors">
+                        Sign in with Google
+                    </button>
+                    <div id="auth-user" class="hidden flex items-center gap-2">
+                        <img id="auth-avatar" class="w-7 h-7 rounded-full border border-gray-200" alt="">
+                        <div class="flex flex-col leading-tight">
+                            <span id="auth-name" class="text-xs font-semibold text-gray-700"></span>
+                            <span id="auth-email" class="text-[11px] text-gray-500 hidden md:block"></span>
+                        </div>
+                        <button id="auth-logout" class="text-xs font-medium text-gray-500 hover:text-gray-700 transition-colors">
+                            Sign out
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Empty State Instructions -->
+    <div id="empty-instructions" class="fixed inset-0 flex items-center justify-center pointer-events-none z-30 ui-panel">
+        <div class="text-center space-y-2">
+            <p class="text-4xl text-gray-300 font-light tracking-wide" id="empty-text-desktop">Canvas is empty</p>
+            <p class="text-4xl text-gray-300 font-light tracking-wide hidden" id="empty-text-mobile">Canvas is empty</p>
+            <p class="text-sm text-gray-400 font-medium">Press ? for help</p>
+        </div>
+    </div>
+
+    <!-- Minimap -->
+    <div id="minimap-container" class="fixed bottom-4 right-4 z-40">
+        <div class="glass-panel p-2 rounded-lg shadow-sm pointer-events-auto">
+            <canvas id="minimap-canvas"></canvas>
+        </div>
+    </div>
+
+    <div id="help-footer" class="fixed bottom-4 left-4 z-40 ui-panel glass-panel px-3 py-2 rounded-lg shadow-sm text-xs text-gray-600 pointer-events-none">
+        Press <span class="kbd">?</span> for help
+    </div>
+
+    <!-- Context Menu -->
+    <div id="context-menu" class="hidden">
+        <button id="context-new-note">Create Note</button>
+        <button id="context-new-group">Create Group</button>
+    </div>
+
+<script type="module" src="./js/main.js"></script>
+
+<!-- Legacy script for backwards compatibility during migration -->
+<script>
+// This empty script block preserves the structure.
+// The app is now loaded via ES modules from ./js/main.js
+//
+// run it with `npx serve .`
+</script>
+
+<!-- 
+ORIGINAL MONOLITHIC CODE PRESERVED BELOW FOR REFERENCE
+This has been refactored into the following modules in ./js/:
+- EventBus.js - Pub/sub event system
+- Store.js - Centralized state management  
+- Renderer.js - Canvas rendering
+- InputHandler.js - Mouse/touch/keyboard input
+- NoteManager.js - Note CRUD operations
+- ConnectionManager.js - Connection CRUD operations
+- GroupManager.js - Group CRUD operations
+- ProjectManager.js - Project persistence
+- UIController.js - UI panel management
+- TextEditor.js - Text editing overlay
+- App.js - Main orchestrator
+- main.js - Entry point
+
+The original App class started here:
+class App {
+    constructor() {
+        this.canvas = document.getElementById('app-canvas');
+        // ... (2200+ lines of code moved to modules)
+    }
+}
+
+END OF ORIGINAL CODE REFERENCE
+-->
+</body>
+</html>

@@ -1,0 +1,37 @@
+# Dependencies
+node_modules/
+
+# Capacitor
+ios/
+macos/
+android/
+
+# Build outputs
+dist/
+www/
+
+# IDE
+.idea/
+*.swp
+*.swo
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Other
+
+TODO.md
+
+ansible/.build/
+ansible/env/
+.env
+.env.dev
+*.db
+
+.codex/

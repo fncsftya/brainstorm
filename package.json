@@ -1,0 +1,8 @@
+{
+  "name": "brainstorm",
+  "version": "0.1.0",
+  "description": "A lightweight brainstorming canvas app",
+  "scripts": {
+    "start": "go run ."
+  }
+}
